@@ -15,14 +15,9 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.GenericHID.Hand;
 
 public class Robot extends TimedRobot {
-  private static TalonSRX[] talons = new TalonSRX[8];
-  private static XboxController c = new XboxController(0);
 
   @Override
   public void robotInit() {
-    for(int i = 0; i < 8; i++) {
-      talons[i]  = new TalonSRX(i); 
-    }
   }
 
   @Override
@@ -45,6 +40,20 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void teleopPeriodic() {
+  }
+  
+  /**
+   * test
+   */
+  
+  TalonSRX[] talons = new TalonSRX[8];
+  XboxController c = new XboxController(0);
+
+  @Override
+  public void testInit() {
+    for(int i = 0; i < 8; i++) {
+      talons[i]  = new TalonSRX(i); 
+    }
   }
 
   /**
