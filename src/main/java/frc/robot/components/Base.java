@@ -17,18 +17,24 @@ public class Base {
 
     public static Base getInstance() {
         if (instance == null) {
-            instance = new Base(Constants.TALON_IDS);
+            instance = new Base();
         }
         return instance;
     }
 
     private static Module[] modules = new Module[4]; // Swerve modules in the order: SE, NE, NW, SW
 
-    public Base(int[] talons){
+    public Base(){
+        int[] talons = Constants.TALON_IDS;
+
         for(int j = 0; j < 4; j++) {
             modules[j] = new Module(new TalonSRX(talons[j * 2]), new TalonSRX(talons[j * 2 + 1]));
             //a module objects are created, with the corresponding Talon ID's from the constant
         }
+    }
+
+    public Module getModule(int id) {
+        return modules[id];
     }
     
     public static void directControl() {
@@ -37,5 +43,11 @@ public class Base {
 
     public static void fieldOrientedControl() {
 
+    }
+
+    public void reset() {
+        for(Module mod : modules) {
+            mod.reset();
+        }
     }
 }

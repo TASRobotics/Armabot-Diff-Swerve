@@ -6,6 +6,7 @@ import com.ctre.phoenix.motorcontrol.FeedbackDevice;
 import com.ctre.phoenix.motorcontrol.FollowerType;
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix.motorcontrol.RemoteSensorSource;
+import com.ctre.phoenix.motorcontrol.SensorTerm;
 import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import com.ctre.phoenix.motorcontrol.can.TalonSRXConfiguration;
 
@@ -24,6 +25,8 @@ public class Differential {
         bottom = b;
         basicSetup(top, false);
         basicSetup(bottom, true);
+        
+        System.out.println("new diff:" + top.getDeviceID()+bottom.getDeviceID());
 
         //use cw motor for closed loop setup
         closedLoopVeloSetup(top, bottom);
@@ -31,10 +34,11 @@ public class Differential {
     }
 
     private void basicSetup(TalonSRX motor, boolean invert) {
-        motor.configFactoryDefault();
+        System.out.println(motor.configFactoryDefault());
+        motor.set(ControlMode.PercentOutput, 0);
+        motor.setSensorPhase(false);
         motor.setInverted(invert);
         motor.setNeutralMode(NeutralMode.Brake);
-        motor.configSelectedFeedbackSensor(FeedbackDevice.CTRE_MagEncoder_Relative);
     }
 
     /**
@@ -52,7 +56,16 @@ public class Differential {
      * @param master the master to be configured
      */
     private void closedLoopVeloSetup(TalonSRX master, TalonSRX remote) {
-        TalonSRXConfiguration config = new TalonSRXConfiguration();
+
+        // setup the encoder on the other motor as an input
+        remote.configSelectedFeedbackSensor(
+            FeedbackDevice.CTRE_MagEncoder_Relative, 
+            Constants.REMOTE_SENSOR_SLOT, Constants.TIMEOUT_MS);
+
+        master.configRemoteFeedbackFilter(
+            remote.getDeviceID(),
+            RemoteSensorSource.TalonSRX_SelectedSensor, Constants.REMOTE_SENSOR_SLOT, 
+            Constants.TIMEOUT_MS);
 
         /**
          * displacement (velocity) PID [PID loop 0]
@@ -60,55 +73,52 @@ public class Differential {
          * displacement = (pos1 - pos2) / 2
          */
 
-        // setup the encoder on the other master as an input
-        config.remoteFilter0.remoteSensorDeviceID = remote.getDeviceID();
-        config.remoteFilter0.remoteSensorSource = RemoteSensorSource.TalonSRX_SelectedSensor;
-
         // setup the sensor addition and the coefficient
-        config.diff0Term = FeedbackDevice.CTRE_MagEncoder_Relative;
-        config.diff0Term = FeedbackDevice.RemoteSensor0;
-        config.primaryPID.selectedFeedbackSensor = FeedbackDevice.SensorDifference;
-        config.primaryPID.selectedFeedbackCoefficient = 
-            Constants.PLANET_VELOCITY_SENSOR_COEFFICIENT;
+        master.configSensorTerm(SensorTerm.Diff0, FeedbackDevice.CTRE_MagEncoder_Relative, 
+            Constants.TIMEOUT_MS);
+            master.configSensorTerm(SensorTerm.Diff1, FeedbackDevice.RemoteSensor0, 
+                Constants.TIMEOUT_MS);
+        master.configSelectedFeedbackSensor(FeedbackDevice.SensorDifference, 
+            Constants.PID_PLANET_VELOCITY_SLOT, Constants.TIMEOUT_MS);
+        master.configSelectedFeedbackCoefficient(Constants.PLANET_VELOCITY_SENSOR_COEFFICIENT, 
+            Constants.PID_PLANET_VELOCITY_SLOT, Constants.TIMEOUT_MS);
 
         // setup the constants
-        config.slot0.kP = Constants.PLANET_VELOCITY_KP;
-        config.slot0.kI = Constants.PLANET_VELOCITY_KI;
-        config.slot0.kD = Constants.PLANET_VELOCITY_KD;
-        config.slot0.integralZone = Constants.PLANET_VELOCITY_KIZ;
-        
+        master.config_kF(Constants.PID_PLANET_VELOCITY_SLOT, Constants.PLANET_VELOCITY_KF, // F
+        Constants.TIMEOUT_MS);
+        master.config_kP(Constants.PID_PLANET_VELOCITY_SLOT, Constants.PLANET_VELOCITY_KP, // P
+            Constants.TIMEOUT_MS);
+        master.config_kI(Constants.PID_PLANET_VELOCITY_SLOT, Constants.PLANET_VELOCITY_KI, // I
+            Constants.TIMEOUT_MS);
+        master.config_kD(Constants.PID_PLANET_VELOCITY_SLOT, Constants.PLANET_VELOCITY_KD, // D
+            Constants.TIMEOUT_MS);
+        master.config_IntegralZone(Constants.PID_PLANET_VELOCITY_SLOT, // IZ
+        Constants.PLANET_VELOCITY_KIZ, Constants.TIMEOUT_MS);
         /**
          * module direction (position) PID [PID loop 1]
          * sets up the equation:
          * direction = (pos1 + po2) / 2
          */
 
-        // setup the encoder on the other master as an input
-        config.remoteFilter0.remoteSensorDeviceID = remote.getDeviceID();
-        config.remoteFilter0.remoteSensorSource = RemoteSensorSource.TalonSRX_SelectedSensor;
-        
         // setup the sensor addition and the coefficient
-        config.sum0Term = FeedbackDevice.CTRE_MagEncoder_Relative;
-        config.sum1Term = FeedbackDevice.RemoteSensor0;
-        config.auxiliaryPID.selectedFeedbackSensor = FeedbackDevice.SensorSum;
-        config.auxiliaryPID.selectedFeedbackCoefficient = Constants.CARRIER_COEFFICIENT;
+        master.configSensorTerm(SensorTerm.Sum0, FeedbackDevice.CTRE_MagEncoder_Relative, 
+        Constants.TIMEOUT_MS);
+        master.configSensorTerm(SensorTerm.Sum1, FeedbackDevice.RemoteSensor0, 
+            Constants.TIMEOUT_MS);
+        master.configSelectedFeedbackSensor(FeedbackDevice.SensorSum, 
+            Constants.PID_CARRIER_SLOT, Constants.TIMEOUT_MS);
+        master.configSelectedFeedbackCoefficient(Constants.CARRIER_COEFFICIENT, 
+            Constants.PID_CARRIER_SLOT, Constants.TIMEOUT_MS);
 
         // setup the constants
-        config.slot1.kP = Constants.CARRIER_KP;
-        config.slot1.kI = Constants.CARRIER_KI;
-        config.slot1.kD = Constants.CARRIER_KD;
-        config.slot1.kD = Constants.CARRIER_KF;
-        config.slot1.integralZone = Constants.CARRIER_KIZ;
-
-        /**
-         * setup primary and aux output so that
-         * motor0 = PID1 + PID0;
-         * and
-         * motor1 = PID1 - PID0;
-         */
-        config.auxPIDPolarity = false;
-
-        master.configAllSettings(config);
+        master.config_kP(Constants.PID_CARRIER_SLOT, Constants.CARRIER_KP, // P
+            Constants.TIMEOUT_MS);
+        master.config_kI(Constants.PID_CARRIER_SLOT, Constants.CARRIER_KI, // I
+            Constants.TIMEOUT_MS);
+        master.config_kD(Constants.PID_CARRIER_SLOT, Constants.CARRIER_KD, // D
+            Constants.TIMEOUT_MS);
+        master.config_IntegralZone(Constants.PID_CARRIER_SLOT, // IZ
+            Constants.CARRIER_KIZ, Constants.TIMEOUT_MS);
 
         remote.follow(master, FollowerType.AuxOutput1);
 
@@ -117,11 +127,10 @@ public class Differential {
 
     public int veloControl(double speed, double targetDifference) {
         if(mode == SwerveMode.VELOCITY){
-
             // even when using the Velocity control mode, the aux PID runs in position
-            top.set(ControlMode.Velocity, targetDifference, DemandType.AuxPID, targetDifference);
+            top.set(ControlMode.Velocity, speed, DemandType.AuxPID, targetDifference);
+            System.out.println(top.getSelectedSensorPosition(1));
             return 0;
-            
         }
         
         System.out.println("velocity control was attempted in the wrong mode");
@@ -140,6 +149,19 @@ public class Differential {
 
     public void zeroBottom() {
         bottom.setSelectedSensorPosition(0);
+    }
+
+    public double getRotation() {
+        return top.getSelectedSensorPosition(Constants.PID_CARRIER_SLOT);
+    }
+
+    public double getDisplacement() {
+        return top.getSelectedSensorPosition(Constants.PID_PLANET_POSITION_SLOT);
+    }
+
+    public void resetMotors() {
+        top.set(ControlMode.PercentOutput, 0);
+        bottom.set(ControlMode.PercentOutput, 0);
     }
 
 }

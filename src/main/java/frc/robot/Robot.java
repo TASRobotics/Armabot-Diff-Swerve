@@ -16,6 +16,10 @@ import edu.wpi.first.wpilibj.GenericHID.Hand;
 
 public class Robot extends TimedRobot {
 
+  /**
+   * robot
+   */
+
   @Override
   public void robotInit() {
   }
@@ -23,25 +27,33 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {
   }
+  
+  /**
+   * teleop
+   */
+
+  @Override
+  public void teleopInit() {
+    Teleop.getInstance().init();
+  }
+
+  @Override
+  public void teleopPeriodic() {
+    Teleop.getInstance().loop();
+  }
+  
+  /**
+   * auton
+   */
 
   @Override
   public void autonomousInit() {
   }
 
-  /**
-   * This function is called periodically during autonomous.
-   */
   @Override
   public void autonomousPeriodic() {
   }
 
-  /**
-   * This function is called periodically during operator control.
-   */
-  @Override
-  public void teleopPeriodic() {
-  }
-  
   /**
    * test
    */
